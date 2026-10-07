@@ -1,0 +1,146 @@
+import type { Book } from "@/types/book";
+
+// No cover files yet: BookCover shows its designed fallback when coverUrl is null.
+// Add files to /public/covers and set coverUrl later; nothing else needs to change.
+export const catalog: Book[] = [
+  {
+    id: "1",
+    title: "The Quiet Hours",
+    subtitle: "A novel about attention",
+    author: { id: "a1", name: "Mara Ellison" },
+    coverUrl: null,
+    price: 8.99,
+    compareAtPrice: 12.99,
+    currency: "USD",
+    rating: 4.7,
+    ratingCount: 312,
+    category: "Fiction",
+    language: "English",
+    format: "EPUB",
+    description:
+      "A year in the life of a night-shift librarian who learns that the stories worth keeping are the ones we almost miss. Warm, patient, and quietly funny.",
+    pages: 284,
+    publishedAt: "2026-03-14",
+  },
+  {
+    id: "2",
+    title: "Paper Cities",
+    author: { id: "a2", name: "Daniel Reyes" },
+    coverUrl: null,
+    price: 12.0,
+    currency: "USD",
+    rating: 4.5,
+    ratingCount: 198,
+    category: "Design",
+    language: "English",
+    format: "PDF",
+    description: "How cities are drawn, folded, and imagined on paper.",
+    pages: 220,
+    publishedAt: "2026-05-02",
+  },
+  {
+    id: "3",
+    title: "Slow Light",
+    author: { id: "a3", name: "Anika Rao" },
+    coverUrl: null,
+    price: 6.5,
+    currency: "USD",
+    rating: 4.8,
+    ratingCount: 441,
+    category: "Science",
+    language: "English",
+    format: "EPUB",
+    description: "A gentle introduction to how light travels, bends, and slows.",
+    pages: 180,
+    publishedAt: "2026-01-20",
+  },
+  {
+    id: "4",
+    title: "Notes on Calm Software",
+    author: { id: "a4", name: "Mina Park" },
+    coverUrl: null,
+    price: 14.99,
+    currency: "USD",
+    rating: 4.6,
+    ratingCount: 87,
+    category: "Technology",
+    language: "English",
+    format: "PDF",
+    pages: 156,
+    publishedAt: "2026-08-11",
+  },
+  {
+    id: "5",
+    title: "The Slow Library",
+    author: { id: "a5", name: "Arjun Rao" },
+    coverUrl: null,
+    price: 0,
+    currency: "USD",
+    rating: 4.2,
+    ratingCount: 56,
+    category: "History",
+    language: "English",
+    format: "EPUB",
+    pages: 240,
+    publishedAt: "2026-09-03",
+  },
+  {
+    id: "6",
+    title: "A Field Guide to Typography",
+    author: { id: "a6", name: "Tom Haverly" },
+    coverUrl: null,
+    price: 18.0,
+    compareAtPrice: 24.0,
+    currency: "USD",
+    rating: 4.9,
+    ratingCount: 603,
+    category: "Design",
+    language: "English",
+    format: "PDF",
+    pages: 310,
+    publishedAt: "2025-11-27",
+  },
+  {
+    id: "7",
+    title: "Letters to a Young Maker",
+    author: { id: "a7", name: "Sophea Lim" },
+    coverUrl: null,
+    price: 9.5,
+    currency: "USD",
+    rating: 4.4,
+    ratingCount: 129,
+    category: "Business",
+    language: "English",
+    format: "EPUB",
+    pages: 198,
+    publishedAt: "2026-06-18",
+  },
+  {
+    id: "8",
+    title: "The Cartographer's Daughter",
+    author: { id: "a8", name: "Isla Moreno" },
+    coverUrl: null,
+    price: 7.25,
+    currency: "USD",
+    rating: 4.3,
+    ratingCount: 245,
+    category: "Fiction",
+    language: "English",
+    format: "EPUB",
+    pages: 352,
+    publishedAt: "2026-09-21",
+  },
+];
+
+export const featuredBook: Book = catalog[0];
+
+// Most-reviewed first
+export const trendingBooks: Book[] = [...catalog].sort(
+  (a, b) => b.ratingCount - a.ratingCount
+);
+
+// Newest first
+export const newReleases: Book[] = [...catalog].sort(
+  (a, b) =>
+    new Date(b.publishedAt ?? 0).getTime() - new Date(a.publishedAt ?? 0).getTime()
+);
