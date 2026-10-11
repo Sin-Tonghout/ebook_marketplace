@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
@@ -6,10 +9,52 @@ import {
   StaggerChildren,
   StaggerItem,
 } from "@/components/motion";
+import { useCategories } from "@/hooks/useCategories";
 import { homeCategories } from "@/lib/mock/categories";
+import { allBooks } from "@/lib/mock/findBook";
+import { slugify } from "@/lib/slug";
 import { cn } from "@/lib/utils";
 
+// Used when a category has no hand-picked colors in lib/mock/categories.
+const FALLBACK = [
+  { bg: "var(--primary)", fg: "var(--background)" },
+  { bg: "var(--accent-soft)", fg: "var(--primary)" },
+  { bg: "var(--surface-soft)", fg: "var(--text-primary)" },
+  { bg: "var(--accent)", fg: "var(--primary)" },
+  { bg: "var(--surface)", fg: "var(--text-primary)" },
+];
+
 export function CategoryBlocks() {
+  const categories = useCategories();
+
+  const blocks = useMemo(
+    () =>
+      categories
+        .map((c) => {
+          const slug = slugify(c.name);
+          return {
+            slug,
+            name: c.name,
+            count: allBooks.filter((b) => slugify(b.category) === slug).length,
+          };
+        })
+        .filter((c) => c.count > 0)
+        .slice(0, 5)
+        .map((c, i) => {
+          const base = homeCategories.find((h) => h.slug === c.slug);
+          const fallback = FALLBACK[i % FALLBACK.length];
+          return {
+            ...c,
+            featured: i === 0,
+            bg: base?.bg ?? fallback.bg,
+            fg: base?.fg ?? fallback.fg,
+          };
+        }),
+    [categories]
+  );
+
+  if (blocks.length === 0) return null;
+
   return (
     <section
       aria-labelledby="categories-heading"
@@ -20,7 +65,7 @@ export function CategoryBlocks() {
           Browse by category
         </h2>
         <Link
-                    href="/books"
+          href="/books"
           className="inline-flex items-center gap-1 type-label hover:underline"
         >
           All categories
@@ -29,7 +74,7 @@ export function CategoryBlocks() {
       </RevealOnScroll>
 
       <StaggerChildren className="grid grid-cols-2 gap-4 md:grid-cols-4 md:grid-rows-2">
-        {homeCategories.map((c) => (
+        {blocks.map((c) => (
           <StaggerItem
             key={c.slug}
             className={cn(c.featured ? "col-span-2 md:row-span-2" : "col-span-1")}
@@ -67,7 +112,9 @@ export function CategoryBlocks() {
                 >
                   {c.name}
                 </h3>
-                <p className="mt-1 text-sm opacity-75">{c.bookCount} books</p>
+                <p className="mt-1 text-sm opacity-75">
+                  {c.count} {c.count === 1 ? "book" : "books"}
+                </p>
               </div>
             </Link>
           </StaggerItem>

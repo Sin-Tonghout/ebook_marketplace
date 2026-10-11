@@ -28,7 +28,7 @@ export function BookDescription({ text }: { text: string }) {
       </h2>
 
       <div
-        className={`mt-4 max-w-prose space-y-4 text-lg leading-relaxed text-foreground/90 ${
+        className={`mt-4 max-w-prose space-y-4 text-lg leading-relaxed text-foreground/90 [overflow-wrap:anywhere] ${
           isLong && !open ? "line-clamp-6" : ""
         }`}
       >

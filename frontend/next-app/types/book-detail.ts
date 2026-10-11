@@ -43,6 +43,7 @@ export interface BookDetail {
   description: string;
   coverUrl?: string;
   price: number; // 0 = free
+  compareAtPrice?: number; // original price when discounted
   currency: "USD" | "KHR";
   rating: number;
   ratingCount: number;
@@ -53,6 +54,7 @@ export interface BookDetail {
   previewPages: BookPreviewPage[];
   reviews: BookReview[];
 }
+
 
 
 

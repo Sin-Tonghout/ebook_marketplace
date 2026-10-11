@@ -3,8 +3,10 @@
 import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
 
-import type { BookQuery } from "@/lib/books/query";
+import { useCategories } from "@/hooks/useCategories";
+import { sortOptions, type BookQuery } from "@/lib/books/query";
 import { duration, ease, transition } from "@/lib/motion";
+import { slugify, titleFromSlug } from "@/lib/slug";
 
 interface ActiveFiltersProps {
   query: BookQuery;
@@ -17,10 +19,26 @@ export function ActiveFilters({
   onChange,
   onClearAll,
 }: ActiveFiltersProps) {
+  const categories = useCategories();
+
+  const labelFor = (key: keyof BookQuery, value: unknown): string => {
+    const text = String(value);
+    if (key === "category") {
+      const found = categories.find((c) => slugify(c.name) === text);
+      return `Category: ${found?.name ?? titleFromSlug(text)}`;
+    }
+    if (key === "q") return `Search: ${text}`;
+    if (key === "sort") {
+      return `Sort: ${sortOptions.find((o) => o.value === text)?.label ?? text}`;
+    }
+    return `${key}: ${text}`;
+  };
+
   const chips = (Object.entries(query) as [keyof BookQuery, unknown][])
     .filter(
       ([key, value]) =>
         key !== "page" &&
+        !(key === "sort" && value === "newest") &&
         value !== undefined &&
         value !== null &&
         value !== "" &&
@@ -28,7 +46,7 @@ export function ActiveFilters({
     )
     .map(([key, value]) => ({
       key,
-      label: `${String(key)}: ${String(value)}`,
+      label: labelFor(key, value),
     }));
   if (chips.length === 0) return null;
 

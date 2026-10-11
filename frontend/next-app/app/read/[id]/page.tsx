@@ -14,11 +14,12 @@ import { useToast } from "@/components/ui/Toast";
 import { useLibrary } from "@/hooks/useLibrary";
 import { useReaderScroll } from "@/hooks/useReaderScroll";
 import { useReaderSettings } from "@/hooks/useReaderSettings";
-import { mockBooks } from "@/lib/mock-data";
+import { findBook } from "@/lib/mock/findBook";
 import { getChapters, type Chapter } from "@/lib/mock/chapters";
 import { libraryService } from "@/services/library";
 import { readerThemeStyle, resolveReaderTheme } from "@/types/reader";
-
+import { motion } from "motion/react";
+import { transition } from "@/lib/motion";
 import type { Book } from "@/types/book";
 import type { Bookmark, ReadingProgress } from "@/types/library";
 
@@ -46,7 +47,7 @@ function ReaderView({ book, saved }: { book: Book; saved?: ReadingProgress }) {
   const { settings, update, reset } = useReaderSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
-
+  const [ready, setReady] = useState(false);
   const initial = useRef(saved).current; // position at the moment the book was opened
   const restored = useRef(false);
   const percentRef = useRef(0);
@@ -63,6 +64,7 @@ function ReaderView({ book, saved }: { book: Book; saved?: ReadingProgress }) {
     const raf = requestAnimationFrame(() => {
       scrollToPercent(start);
       restored.current = true;
+      setReady(true);
     });
     return () => cancelAnimationFrame(raf);
   }, [initial]);
@@ -194,7 +196,13 @@ function ReaderView({ book, saved }: { book: Book; saved?: ReadingProgress }) {
         onReset={reset}
         onClose={() => setSettingsOpen(false)}
       />
-      <ReaderContent chapters={chapters} settings={settings} onFinish={goBack} />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: ready ? 1 : 0 }}
+        transition={transition.normal}
+      >
+        <ReaderContent chapters={chapters} settings={settings} onFinish={goBack} />
+      </motion.div>
     </div>
   );
 }
@@ -215,12 +223,12 @@ function Message({ title, body, cta, href }: { title: string; body: string; cta:
 export default function ReadPage() {
   const { id } = useParams<{ id: string }>();
   const { state, loading } = useLibrary();
-  const book = mockBooks.find((b) => b.id === id);
+  const book = findBook(id);
 
   return (
     <RequireAuth>
       {loading || !state ? (
-        <ReaderSkeleton />
+        <ReaderSkeleton title={book?.title} author={book?.author.name} />
       ) : !book ? (
         <Message
           title="We couldn't find this book."

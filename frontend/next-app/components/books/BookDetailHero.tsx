@@ -6,6 +6,7 @@ import { Check, Heart, Loader2 } from "lucide-react";
 import { useState } from "react";
 import type { BookDetail } from "@/types/book-detail";
 import { mockPurchase } from "@/lib/mock/purchase";
+import { useLibrary } from "@/hooks/useLibrary";
 import { BookCover } from "@/components/books/BookCover";
 import { Rating } from "@/components/books/Rating";
 import { Badge } from "@/components/ui/Badge";
@@ -21,15 +22,18 @@ export function BookDetailHero({ book }: { book: BookDetail }) {
   const reduce = useReducedMotion();
   const [saved, setSaved] = useState(false);
   const [status, setStatus] = useState<PurchaseStatus>("idle");
+  const { state: library, addOwned } = useLibrary();
 
   const isFree = book.price === 0;
-  const owned = status === "success";
+  const alreadyOwned = library?.owned.includes(book.id) ?? false;
+  const owned = status === "success" || alreadyOwned;
 
   async function handleBuy() {
     if (status === "loading" || owned) return;
     setStatus("loading");
     try {
       await mockPurchase(book.id);
+      addOwned(book.id);
       setStatus("success");
     } catch {
       setStatus("error");
@@ -109,15 +113,27 @@ export function BookDetailHero({ book }: { book: BookDetail }) {
           <span className="text-3xl font-semibold text-foreground">
             {formatPrice(book.price, book.currency)}
           </span>
-          <span className="text-sm text-muted-foreground">{book.format} · digital</span>
+          {book.compareAtPrice !== undefined && book.compareAtPrice > book.price && (
+            <>
+              <span className="sr-only">, was </span>
+              <span className="text-lg text-muted line-through">
+                {formatPrice(book.compareAtPrice, book.currency)}
+              </span>
+            </>
+          )}
+          <span className="text-sm text-muted">{book.format} · digital</span>
         </motion.div>
 
         {/* Actions */}
         <motion.div {...rise(0.4)} className="mt-6 flex flex-wrap items-center gap-3">
           {owned ? (
-            <Link href={`/library`} className={primaryBtn}>
+            <Link href={`/read/${book.id}`} className={primaryBtn}>
               <Check className="h-5 w-5" aria-hidden="true" />
-              In your library
+              In your library · Read
+            </Link>
+          ) : !isFree ? (
+            <Link href={`/checkout/${book.id}`} className={primaryBtn}>
+              Buy now
             </Link>
           ) : (
             <button
@@ -130,13 +146,7 @@ export function BookDetailHero({ book }: { book: BookDetail }) {
               {status === "loading" && (
                 <Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               )}
-              {status === "loading"
-                ? "Processing…"
-                : status === "error"
-                  ? "Try again"
-                  : isFree
-                    ? "Get for free"
-                    : "Buy now"}
+              {status === "loading" ? "Processing…" : status === "error" ? "Try again" : "Get for free"}
             </button>
           )}
 
@@ -207,7 +217,7 @@ export function BookDetailHero({ book }: { book: BookDetail }) {
                 className="rounded-xl border border-danger/40 px-4 py-3"
               >
                 <p className="text-sm font-medium text-foreground">
-                  Payment didn't complete. Your order was not charged.
+                  Something went wrong. Please try again.
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Use the Try again button above to retry.

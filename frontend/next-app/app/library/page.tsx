@@ -10,7 +10,7 @@ import { LibrarySkeleton } from "@/components/library/LibrarySkeleton";
 import { LibraryTile } from "@/components/library/LibraryTile";
 import { useLibrary } from "@/hooks/useLibrary";
 import { cn } from "@/lib/utils";
-import { mockBooks } from "@/lib/mock-data"; // adjust if your mock-data.ts lives elsewhere
+import { findBook } from "@/lib/mock/findBook";
 
 type Tab = "all" | "favorites" | "completed";
 
@@ -35,7 +35,7 @@ export default function LibraryPage() {
   const owned = useMemo(() => {
     if (!state) return [];
     return state.owned
-      .map((id) => mockBooks.find((b) => b.id === id))
+      .map((id) => findBook(id))
       .filter((b): b is NonNullable<typeof b> => Boolean(b));
   }, [state]);
 

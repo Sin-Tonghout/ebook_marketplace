@@ -1,130 +1,125 @@
-// import type { BookDetail } from "@/types/book-detail";
 import type { BookDetail, RelatedBook } from "@/types/book-detail";
+import type { Book } from "@/types/book";
+import { allBooks, findBook } from "@/lib/mock/findBook";
 
-const relatedPool: (RelatedBook & { category: string })[] = [
-  { id: "1", title: "The Future of Design", authorName: "Sokha Chan", category: "Design", price: 12, currency: "USD", rating: 4.6 },
-  { id: "2", title: "Quiet Pages", authorName: "Dara Meas", category: "Non-fiction", price: 0, currency: "USD", rating: 4.2 },
-  { id: "3", title: "Type in Motion", authorName: "Sokha Chan", category: "Design", price: 9.99, currency: "USD", rating: 4.8 },
-  { id: "4", title: "Systems of Color", authorName: "Linda Rath", category: "Design", price: 14.5, currency: "USD", rating: 4.4 },
-  { id: "5", title: "The Slow Library", authorName: "Dara Meas", category: "Non-fiction", price: 7.5, currency: "USD", rating: 4.1 },
-  { id: "6", title: "Notes on Attention", authorName: "Vireak Sou", category: "Non-fiction", price: 5, currency: "USD", rating: 4.5 },
-  { id: "7", title: "Interface Fundamentals", authorName: "Linda Rath", category: "Design", price: 18, currency: "USD", rating: 4.7 },
-];
 
+/** Related books come from the main catalog, so every link opens a real page. */
 export function getRelatedBooks(book: BookDetail, limit = 6): RelatedBook[] {
-  const others = relatedPool.filter((b) => b.id !== book.id);
+  const others = allBooks.filter((b) => b.id !== book.id);
   const sameCategory = others.filter((b) => b.category === book.category);
   const rest = others.filter((b) => b.category !== book.category);
-  return [...sameCategory, ...rest]
-    .slice(0, limit)
-    .map(({ category: _category, ...b }) => b);
+  return [...sameCategory, ...rest].slice(0, limit).map((b) => ({
+    id: b.id,
+    title: b.title,
+    authorName: b.author.name,
+    coverUrl: b.coverUrl ?? undefined,
+    price: b.price,
+    currency: b.currency,
+    rating: b.rating,
+  }));
 }
-const books: BookDetail[] = [
-  {
-    id: "1",
-    title: "The Future of Design",
-    subtitle: "Craft, systems, and the next decade of interfaces",
-    // book "1"
+
+/** Hand-written extras for books that have richer content than the catalog entry. */
+const extras: Record<string, Partial<BookDetail>> = {
+  "1": {
     author: {
       id: "a1",
-      name: "Sokha Chan",
-      bio: "Sokha is a product designer and writer based in Phnom Penh. She writes about design systems, motion, and the quiet details that make software feel considered.",
+      name: "Mara Ellison",
+      bio: "Mara writes quiet, character-driven fiction about attention, work, and the small rituals that hold a life together. She lives near the sea and reads mostly at night.",
       followers: 1240,
-      books: [
-        { id: "1", title: "The Future of Design", price: 12, currency: "USD" },
-        { id: "2", title: "Quiet Pages", price: 0, currency: "USD" },
-      ],
+      books: [{ id: "1", title: "The Quiet Hours", price: 8.99, currency: "USD" }],
     },
-    category: "Design",
     description:
-      "A calm, practical look at where design is heading. Through essays and case studies, the book explores how systems thinking, motion, and typography shape the products people love.\n\nWritten for designers, developers, and anyone who cares about how things feel.",
-    price: 12,
-    currency: "USD",
-    rating: 4.6,
-    ratingCount: 238,
-    format: "EPUB",
-    pages: 264,
-    language: "English",
-    publishedAt: "2026-03-14",
-    // inside book "1"
+      "A year in the life of a night-shift librarian who learns that the stories worth keeping are the ones we almost miss. Warm, patient, and quietly funny.\n\nFor anyone who has ever stayed up just a little too late for the quiet.",
     previewPages: [
       {
-        chapter: "Chapter 1 — Why Systems Matter",
-        text: "Every interface begins as a handful of decisions. A color, a type size, a spacing value. On their own they are small. Together, and repeated with care, they become a language that people learn without noticing.\n\nThis chapter looks at how that language forms, and why the teams who treat it as a product, not a style guide, ship work that feels inevitable.",
+        chapter: "Chapter 1 — The Night Desk",
+        text: "The library was never fully silent. At two in the morning it hummed: the old radiators, the refrigerator in the staff room, the soft settling of paper. Nora had learned to hear it the way other people learn to hear rain.\n\nShe had taken the night shift for the quiet. She stayed, she would later admit, for the visitors.",
       },
       {
-        text: "Consider the last tool you loved using. Chances are you cannot name a single feature that made it feel good. What you remember is the absence of friction: buttons that behaved, motion that explained, text you could read for an hour.\n\nThat feeling is designed, and it can be taught.",
+        text: "Mostly they came for nothing in particular. A man who wanted the weather page from last year's newspaper. A student who had run out of places to be. Nora handed each of them something small, a book, a lamp, a minute, and wrote nothing down.",
       },
       {
-        chapter: "Chapter 2 — Motion as Meaning",
-        text: "Animation is often described as polish. In practice it is information. A panel that slides in from the right tells you where it lives. A card that lifts slightly tells you it can be pressed.\n\nThe rule is simple: if a movement cannot answer what changed, it should not exist.",
+        chapter: "Chapter 2 — What Gets Returned",
+        text: "Books came back in strange condition. A pressed flower. A train ticket to a town she had never heard of. Once, a note that said only: thank you for not asking.\n\nShe kept a shoebox for these things, though she could not have said why.",
       },
     ],
-    // book "1"
     reviews: [
       {
         id: "r1",
         name: "Vanna P.",
         rating: 5,
-        title: "Changed how I think about motion",
-        body: "Clear, practical, and beautifully written. The chapter on motion as information is worth the price alone.",
+        title: "Read it in one sitting",
+        body: "Gentle, funny, and deeply kind. I finished it at 2 a.m. and felt exactly like the book wanted me to.",
         createdAt: "2026-08-02",
       },
       {
         id: "r2",
         name: "Rithy S.",
         rating: 4,
-        title: "Great for teams",
-        body: "I shared this with my whole design team. A few chapters felt short, but the ideas are solid.",
+        title: "Slow in the best way",
+        body: "Not much happens, and somehow that is the point. A few chapters could be shorter, but I loved the ending.",
         createdAt: "2026-07-19",
       },
       {
         id: "r3",
         name: "Maly K.",
         rating: 5,
-        title: "Calm and thoughtful",
-        body: "Reads like a long conversation with a very good designer.",
+        title: "A perfect bedtime book",
+        body: "Warm, patient and quietly funny. Exactly as described.",
         createdAt: "2026-06-30",
       },
     ],
   },
-  {
-    id: "2",
-    title: "Quiet Pages",
-    subtitle: "A short guide to reading deeply",
-    // book "2"
+};
+
+/** Builds a detail page for any catalog book. */
+function detailFromBook(b: Book): BookDetail {
+  const sameAuthor = allBooks.filter((x) => x.author.id === b.author.id);
+  return {
+    id: b.id,
+    title: b.title,
+    subtitle: b.subtitle,
     author: {
-      id: "a2",
-      name: "Dara Meas",
-      bio: "Dara writes short, practical books about reading, attention, and building habits that last.",
-      followers: 612,
-      books: [{ id: "2", title: "Quiet Pages", price: 0, currency: "USD" }],
+      id: b.author.id,
+      name: b.author.name,
+      bio: `${b.author.name} writes about ${b.category.toLowerCase()} for curious, patient readers.`,
+      followers: 0,
+      books: sameAuthor.map((x) => ({
+        id: x.id,
+        title: x.title,
+        coverUrl: x.coverUrl ?? undefined,
+        price: x.price,
+        currency: x.currency,
+      })),
     },
-    category: "Non-fiction",
-    description:
-      "A short book about attention, slow reading, and building a library that lasts.",
-    price: 0,
-    currency: "USD",
-    rating: 4.2,
-    ratingCount: 86,
-    format: "PDF",
-    pages: 112,
-    language: "English",
-    publishedAt: "2026-01-08",
-    // inside book "2"
+    category: b.category,
+    description: b.description ?? `${b.title} by ${b.author.name}.`,
+    coverUrl: b.coverUrl ?? undefined,
+    price: b.price,
+    compareAtPrice: b.compareAtPrice,
+    currency: b.currency,
+    rating: b.rating,
+    ratingCount: b.ratingCount,
+    format: b.format,
+    pages: b.pages ?? 0,
+    language: b.language,
+    publishedAt: b.publishedAt ?? "2026-01-01",
     previewPages: [
       {
-        chapter: "Introduction",
-        text: "Reading deeply is a skill, and like any skill it fades without use. This short guide offers a few habits for getting it back: one book at a time, a consistent place, and a screen that stays out of your way.",
+        chapter: "Chapter 1",
+        text: "Some ideas arrive quietly, and stay long after louder ones have gone.\n\nThis is a sample page. The full book opens in your library after purchase.",
       },
       {
-        text: "Start small. Ten pages, no notifications, a warm light. The goal is not speed. The goal is to remember what it felt like to be absorbed.",
+        text: "It is easy to mistake speed for progress, and busyness for meaning. The best things are rarely made in a hurry; they are revisited, shaped and trusted.",
       },
     ],
     reviews: [],
-  },
-];
+  };
+}
 
 export function getBookDetail(id: string): BookDetail | undefined {
-  return books.find((b) => b.id === id);
+  const book = findBook(id);
+  if (!book) return undefined;
+  return { ...detailFromBook(book), ...extras[id] };
 }

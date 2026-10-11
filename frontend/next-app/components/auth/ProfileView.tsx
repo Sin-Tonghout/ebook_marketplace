@@ -5,19 +5,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-
-const CATEGORIES = [
-  "Fiction",
-  "Non-fiction",
-  "Technology",
-  "Design",
-  "Business",
-  "Science",
-  "History",
-  "Poetry",
-  "Self-growth",
-  "Children",
-];
+import { useCategories } from "@/hooks/useCategories";
 
 // Placeholder numbers. Phase 8 replaces these with real reading data.
 const MOCK_STATS = [
@@ -29,6 +17,7 @@ const MOCK_STATS = [
 
 export function ProfileView() {
   const { user, updateProfile } = useAuth();
+  const categories = useCategories();
 
   const [name, setName] = useState(user?.name ?? "");
   const [bio, setBio] = useState(user?.bio ?? "");
@@ -37,6 +26,10 @@ export function ProfileView() {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   if (!user) return null;
+
+  // Shared list first, then anything already selected that no longer exists.
+  const names = categories.map((c) => c.name);
+  const options = [...names, ...cats.filter((c) => !names.includes(c))];
 
   const dirty =
     name !== user.name ||
@@ -125,7 +118,7 @@ export function ProfileView() {
             Favorite categories
           </legend>
           <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map((cat) => {
+            {options.map((cat) => {
               const active = cats.includes(cat);
               return (
                 <button

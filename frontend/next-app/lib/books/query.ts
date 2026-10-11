@@ -1,4 +1,5 @@
 import { catalog } from "@/lib/mock/catalog";
+import { slugify } from "@/lib/slug";
 import type { Book } from "@/types/book";
 
 // Small on purpose so pagination is visible with 8 mock books.
@@ -60,7 +61,7 @@ export function queryBooks(query: BookQuery): BookQueryResult {
   let list = [...catalog];
 
   if (query.category) {
-    list = list.filter((b) => b.category.toLowerCase() === query.category);
+    list = list.filter((b) => slugify(b.category) === query.category);
   }
 
   if (query.q) {

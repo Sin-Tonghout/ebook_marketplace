@@ -1,5 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
+import { useCategories } from "@/hooks/useCategories";
+import { allBooks } from "@/lib/mock/findBook";
+import { slugify, titleFromSlug } from "@/lib/slug";
+
 interface Option {
   value: string;
   label: string;
@@ -7,14 +12,6 @@ interface Option {
 
 type FilterField = "category" | "language" | "price" | "rating" | "format";
 type FilterQuery = Partial<Record<FilterField, string>>;
-
-const categoryOptions: readonly Option[] = [
-  { value: "fiction", label: "Fiction" },
-  { value: "non-fiction", label: "Non-fiction" },
-  { value: "business", label: "Business" },
-  { value: "technology", label: "Technology" },
-  { value: "education", label: "Education" },
-];
 
 const languageOptions: readonly Option[] = [
   { value: "english", label: "English" },
@@ -100,6 +97,22 @@ interface FilterPanelProps {
 }
 
 export function FilterPanel({ query, onChange, idPrefix }: FilterPanelProps) {
+  const categories = useCategories();
+
+  // Shared admin list, limited to categories that actually have storefront books.
+  const categoryOptions = useMemo(() => {
+    const options: Option[] = categories
+      .map((c) => ({ value: slugify(c.name), label: c.name }))
+      .filter((o) => allBooks.some((b) => slugify(b.category) === o.value));
+
+    // Keep a category that is already in the URL visible and selected.
+    const selected = query.category;
+    if (selected && !options.some((o) => o.value === selected)) {
+      options.push({ value: selected, label: titleFromSlug(selected) });
+    }
+    return options;
+  }, [categories, query.category]);
+
   return (
     <div className="space-y-8">
       <RadioGroup

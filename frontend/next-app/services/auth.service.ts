@@ -1,7 +1,8 @@
-// import type { SessionUser } from "@/types/auth";
 import type { SellerProfile, SessionUser } from "@/types/auth";
+
 const STORAGE_KEY = "ebook:session";
 const USERS_KEY = "ebook:users";
+const OVERRIDES_KEY = "ebook:user-overrides";
 
 // Demo accounts. Remove in Phase 13 when the Express API takes over.
 const DEMO_USERS: (SessionUser & { password: string })[] = [
@@ -18,6 +19,9 @@ export class AuthError extends Error {
     super(message);
   }
 }
+
+type UserOverride = Partial<Pick<SessionUser, "role" | "status">>;
+
 function getStoredUsers(): (SessionUser & { password: string })[] {
   if (typeof window === "undefined") return [];
   try {
@@ -27,8 +31,28 @@ function getStoredUsers(): (SessionUser & { password: string })[] {
   }
 }
 
+// Admin changes (role / status) are kept separately and applied on top of the
+// base account, so they work for demo accounts and registered accounts alike.
+function readOverrides(): Record<string, UserOverride> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(OVERRIDES_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function writeOverrides(overrides: Record<string, UserOverride>) {
+  window.localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+}
+
+function applyOverride<T extends SessionUser>(u: T): T {
+  const o = readOverrides()[u.id];
+  return o ? { ...u, ...o } : u;
+}
+
 function allUsers() {
-  return [...DEMO_USERS, ...getStoredUsers()];
+  return [...DEMO_USERS, ...getStoredUsers()].map(applyOverride);
 }
 
 export const authService = {
@@ -36,7 +60,7 @@ export const authService = {
     if (typeof window === "undefined") return null;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as SessionUser) : null;
+      return raw ? applyOverride(JSON.parse(raw) as SessionUser) : null;
     } catch {
       return null;
     }
@@ -55,7 +79,7 @@ export const authService = {
     return user;
   },
 
-    async register(name: string, email: string, password: string): Promise<SessionUser> {
+  async register(name: string, email: string, password: string): Promise<SessionUser> {
     await delay(800);
     const exists = allUsers().some(
       (u) => u.email.toLowerCase() === email.trim().toLowerCase()
@@ -77,7 +101,7 @@ export const authService = {
     return user;
   },
 
-    // Always succeeds, even for unknown emails, so attackers can't probe which emails exist.
+  // Always succeeds, even for unknown emails, so attackers can't probe which emails exist.
   async requestPasswordReset(email: string): Promise<void> {
     await delay(800);
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
@@ -97,7 +121,7 @@ export const authService = {
     // Phase 13: the API validates the token and updates the password hash.
   },
 
-    async updateProfile(
+  async updateProfile(
     patch: Partial<Pick<SessionUser, "name" | "bio" | "favoriteCategories">>
   ): Promise<SessionUser> {
     await delay(600);
@@ -117,7 +141,7 @@ export const authService = {
     return updated;
   },
 
-    async becomeSeller(profile: SellerProfile, rightsConfirmed: boolean): Promise<SessionUser> {
+  async becomeSeller(profile: SellerProfile, rightsConfirmed: boolean): Promise<SessionUser> {
     await delay(900);
     const current = authService.getSession();
     if (!current) throw new AuthError("UNAUTHENTICATED", "Please sign in again.");
@@ -139,11 +163,38 @@ export const authService = {
       u.id === updated.id ? { ...u, role, sellerProfile: profile } : u
     );
     window.localStorage.setItem(USERS_KEY, JSON.stringify(stored));
+
+    // Becoming a seller replaces any earlier admin role override.
+    const overrides = readOverrides();
+    if (overrides[updated.id]?.role) {
+      delete overrides[updated.id].role;
+      writeOverrides(overrides);
+    }
     return updated;
   },
 
   async logout(): Promise<void> {
     await delay(150);
     window.localStorage.removeItem(STORAGE_KEY);
+  },
+
+  // ---- Admin helpers (Phase 12) ----
+
+  listUsers(): (SessionUser & { source: "demo" | "registered" })[] {
+    const demoIds = new Set(DEMO_USERS.map((u) => u.id));
+    return allUsers().map(({ password: _pw, ...u }) => ({
+      ...u,
+      source: (demoIds.has(u.id) ? "demo" : "registered") as "demo" | "registered",
+    }));
+  },
+
+  async updateUserAccess(id: string, patch: UserOverride): Promise<void> {
+    await delay(300);
+    if (!allUsers().some((u) => u.id === id)) {
+      throw new AuthError("NOT_FOUND", "User not found.");
+    }
+    const overrides = readOverrides();
+    overrides[id] = { ...overrides[id], ...patch };
+    writeOverrides(overrides);
   },
 };

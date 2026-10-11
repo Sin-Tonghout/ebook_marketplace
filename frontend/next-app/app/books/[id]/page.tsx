@@ -7,6 +7,7 @@ import { BookMetadata } from "@/components/books/BookMetadata";
 import { BookAuthorSection } from "@/components/books/BookAuthorSection";
 import { BookReviews } from "@/components/books/BookReviews";
 import { RelatedBooks } from "@/components/books/RelatedBooks";
+import { ReportBookButton } from "@/components/books/ReportBookButton";
 // Keep YOUR working header and footer imports here, for example:
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Footer } from "@/components/layout/Footer";
@@ -33,7 +34,12 @@ export default async function BookDetailPage({
         <BookDetailHero book={book} />
 
         <div className="mx-auto grid max-w-6xl gap-12 px-6 pb-20 md:grid-cols-[1fr_320px] md:gap-16">
-          <BookDescription text={book.description} />
+          <div>
+            <BookDescription text={book.description} />
+            <div className="mt-8">
+              <ReportBookButton bookId={book.id} bookTitle={book.title} />
+            </div>
+          </div>
           <BookMetadata book={book} />
         </div>
 

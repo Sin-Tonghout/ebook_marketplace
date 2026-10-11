@@ -15,7 +15,7 @@ export function BookMetadata({ book }: { book: BookDetail }) {
   const reduce = useReducedMotion();
 
   const items = [
-    { label: "Pages", value: String(book.pages) },
+    ...(book.pages > 0 ? [{ label: "Pages", value: String(book.pages) }] : []),
     { label: "Language", value: book.language },
     { label: "Published", value: formatDate(book.publishedAt) },
     { label: "Format", value: book.format },

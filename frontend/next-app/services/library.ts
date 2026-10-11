@@ -1,15 +1,15 @@
 import type { Bookmark, LibraryState, ReadingProgress } from "@/types/library";
 
-const KEY = "folio.library.v1";
+const KEY = "folio.library.v2";
 
-// Seed so the library is not empty on first run. Replace ids with real mock book ids.
+// Seed so the library is not empty on first run. Ids match the main catalog.
 const SEED: LibraryState = {
-  owned: ["b1", "b2", "b3", "b5", "b8"],
-  favorites: ["b1", "b5"],
+  owned: ["1", "2", "3", "5", "8"],
+  favorites: ["1", "5"],
   progress: {
-    b1: { bookId: "b1", percent: 67, chapter: "Chapter 6", position: 160, lastReadAt: "2026-10-05T20:10:00.000Z" },
-    b2: { bookId: "b2", percent: 31, chapter: "Chapter 3", position: 40, lastReadAt: "2026-10-03T09:30:00.000Z" },
-    b5: { bookId: "b5", percent: 100, chapter: "Epilogue", position: 164, lastReadAt: "2026-09-20T18:00:00.000Z" },
+    "1": { bookId: "1", percent: 67, chapter: "Chapter 6", position: 160, lastReadAt: "2026-10-05T20:10:00.000Z" },
+    "2": { bookId: "2", percent: 31, chapter: "Chapter 3", position: 40, lastReadAt: "2026-10-03T09:30:00.000Z" },
+    "5": { bookId: "5", percent: 100, chapter: "Epilogue", position: 164, lastReadAt: "2026-09-20T18:00:00.000Z" },
   },
   bookmarks: [],
 };
