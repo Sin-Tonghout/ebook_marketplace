@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { BooksView } from "@/components/books/BooksView";
 import { Footer } from "@/components/layout/Footer";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { parseQuery, queryBooks } from "@/lib/books/query";
+import { parseQuery } from "@/lib/books/query";
+import { fetchBooks } from "@/services/books";
 
 export const metadata: Metadata = { title: "Books" };
 
@@ -16,9 +17,8 @@ function pageTitle(q?: string, category?: string) {
 }
 
 export default async function BooksPage({ searchParams }: { searchParams: SearchParams }) {
-   const query = parseQuery(await searchParams);
-  await new Promise((r) => setTimeout(r, 1200)); // TEMP: remove after testing
-  const { books, total, page, pageCount } = queryBooks(query);
+  const query = parseQuery(await searchParams);
+  const { books, total, page, pageCount } = await fetchBooks(query);
 
   return (
     <>

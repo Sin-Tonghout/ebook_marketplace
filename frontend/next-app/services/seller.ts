@@ -1,8 +1,4 @@
-import type {
-  SellerBook,
-  SellerOverview,
-  SellerPublicProfile,
-} from "@/types/seller";
+import type { SellerBook, SellerOverview } from "@/types/seller";
 import { seedBooks, seedOrders, seedSeries } from "@/lib/mock/seller";
 
 const SUBMITTED_KEY = "folio.seller.submitted.v1";
@@ -94,23 +90,4 @@ export async function fetchSellerOverview(): Promise<SellerOverview> {
   );
 
   return { books, orders: seedOrders(), series: seedSeries() };
-}
-
-const profileKey = (userId: string) => `folio.seller.profile.v1.${userId}`;
-
-export function readSellerProfile(userId: string): SellerPublicProfile | null {
-  return readJson<SellerPublicProfile | null>(profileKey(userId), null);
-}
-
-export function saveSellerProfile(
-  userId: string,
-  profile: SellerPublicProfile
-): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    window.localStorage.setItem(profileKey(userId), JSON.stringify(profile));
-    return true;
-  } catch {
-    return false;
-  }
 }

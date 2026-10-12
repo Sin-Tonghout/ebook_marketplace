@@ -1,17 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useCallback, useEffect, useState } from "react";
 import { categoryAdmin } from "@/services/admin-categories";
 import type { Category } from "@/types/category";
 
 export function useAdminCategories() {
-  const { user } = useAuth();
-  const actor = useMemo(
-    () => ({ id: user?.id ?? "unknown", name: user?.name ?? "Admin" }),
-    [user]
-  );
-
   const [categories, setCategories] = useState<Category[]>([]);
   const [usage, setUsage] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -36,17 +29,14 @@ export function useAdminCategories() {
   }, [load]);
 
   // All actions throw on failure so the row or form can show the message.
-  const create = useCallback(
-    async (name: string) => {
-      setCategories(await categoryAdmin.create(name, actor));
-    },
-    [actor]
-  );
+  const create = useCallback(async (name: string) => {
+    setCategories(await categoryAdmin.create(name));
+  }, []);
 
   const rename = useCallback(
     async (id: string, name: string) => {
       const before = categories.find((c) => c.id === id);
-      const next = await categoryAdmin.rename(id, name, actor);
+      const next = await categoryAdmin.rename(id, name);
       setCategories(next);
       const after = next.find((c) => c.id === id);
       if (before && after && before.name !== after.name) {
@@ -59,22 +49,16 @@ export function useAdminCategories() {
         });
       }
     },
-    [actor, categories]
+    [categories]
   );
 
-  const remove = useCallback(
-    async (id: string) => {
-      setCategories(await categoryAdmin.remove(id, actor));
-    },
-    [actor]
-  );
+  const remove = useCallback(async (id: string) => {
+    setCategories(await categoryAdmin.remove(id));
+  }, []);
 
-  const move = useCallback(
-    async (id: string, dir: -1 | 1) => {
-      setCategories(await categoryAdmin.move(id, dir, actor));
-    },
-    [actor]
-  );
+  const move = useCallback(async (id: string, dir: -1 | 1) => {
+    setCategories(await categoryAdmin.move(id, dir));
+  }, []);
 
   return { categories, usage, loading, error, retry: load, create, rename, remove, move };
 }

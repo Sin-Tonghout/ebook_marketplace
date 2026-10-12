@@ -35,10 +35,10 @@ export function ForgotPasswordForm() {
         <p className="text-sm text-[var(--text-secondary)]">
           Check your inbox and spam folder. The link expires in 1 hour.
         </p>
-        {/* Dev shortcut, remove in Phase 13 when real emails exist */}
+        {/* Dev shortcut, remove in Phase 13 when real emails exist
         <Link href="/reset-password?token=demo" className="block text-sm underline underline-offset-4">
           (Demo) Open the reset link
-        </Link>
+        </Link> */}
         <Button variant="secondary" className="w-full" onClick={() => setSent(false)}>
           Use a different email
         </Button>

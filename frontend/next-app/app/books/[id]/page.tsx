@@ -1,6 +1,6 @@
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
-import { getBookDetail, getRelatedBooks } from "@/lib/mock/book-detail";
+import { fetchBookDetail } from "@/services/books";
 import { BookDetailHero } from "@/components/books/BookDetailHero";
 import { BookDescription } from "@/components/books/BookDescription";
 import { BookMetadata } from "@/components/books/BookMetadata";
@@ -8,7 +8,6 @@ import { BookAuthorSection } from "@/components/books/BookAuthorSection";
 import { BookReviews } from "@/components/books/BookReviews";
 import { RelatedBooks } from "@/components/books/RelatedBooks";
 import { ReportBookButton } from "@/components/books/ReportBookButton";
-// Keep YOUR working header and footer imports here, for example:
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Footer } from "@/components/layout/Footer";
 
@@ -22,10 +21,10 @@ export default async function BookDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const book = getBookDetail(id);
-  if (!book) notFound();
+  const data = await fetchBookDetail(id);
+  if (!data) notFound();
 
-  const related = getRelatedBooks(book);
+  const { book, related } = data;
 
   return (
     <>

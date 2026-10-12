@@ -1,6 +1,5 @@
+import { api } from "@/lib/api";
 import type { Category } from "@/types/category";
-
-const KEY = "folio.categories.v1";
 
 const SEED_NAMES = [
   "Technology",
@@ -15,36 +14,37 @@ const SEED_NAMES = [
   "Poetry",
 ];
 
+/** Fallback list: first render (so server and client match) and offline use. */
 export function seedCategories(): Category[] {
   return SEED_NAMES.map((name, i) => ({ id: `cat-${i + 1}`, name }));
 }
 
+let cache: Category[] | null = null;
+let inflight: Promise<Category[]> | null = null;
+
+/** Sync read for code that can't await. Falls back to the seed list. */
 export function getCategories(): Category[] {
-  if (typeof window === "undefined") return seedCategories();
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Category[];
-      if (
-        Array.isArray(parsed) &&
-        parsed.length > 0 &&
-        parsed.every((c) => typeof c?.id === "string" && typeof c?.name === "string")
-      ) {
-        return parsed;
-      }
-    }
-  } catch {
-    /* fall through to the seed list */
-  }
-  return seedCategories();
+  return cache ?? seedCategories();
 }
 
-export function saveCategories(list: Category[]): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(list));
-    return true;
-  } catch {
-    return false;
+/** Call after the admin changes categories so the next read is fresh. */
+export function invalidateCategories() {
+  cache = null;
+  inflight = null;
+}
+
+/** Loads the real list from the API once and shares it between components. */
+export async function fetchCategories(): Promise<Category[]> {
+  if (cache) return cache;
+  if (!inflight) {
+    inflight = api<{ categories: Category[] }>("/categories")
+      .then(({ categories }) => {
+        cache = categories.map(({ id, name }) => ({ id, name }));
+        return cache;
+      })
+      .finally(() => {
+        inflight = null;
+      });
   }
+  return inflight;
 }

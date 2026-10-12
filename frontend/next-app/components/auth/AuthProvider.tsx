@@ -10,7 +10,6 @@ import {
   type ReactNode,
 } from "react";
 import { authService } from "@/services/auth.service";
-// import type { SessionState, SessionUser } from "@/types/auth";
 import type { SellerProfile, SessionState, SessionUser } from "@/types/auth";
 
 interface AuthContextValue {
@@ -23,6 +22,8 @@ interface AuthContextValue {
   register: (name: string, email: string, password: string) => Promise<SessionUser>;
   becomeSeller: (profile: SellerProfile, rightsConfirmed: boolean) => Promise<SessionUser>;
   logout: () => Promise<void>;
+  /** Re-reads the session from the API (after the server changed account data). */
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,10 +41,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [ready, setReady] = useState(false);
 
-  // Read the saved session after mount (avoids SSR hydration mismatch)
+  // Ask the API who is signed in (the session lives in an httpOnly cookie).
   useEffect(() => {
-    setUser(authService.getSession());
-    setReady(true);
+    let cancelled = false;
+    authService
+      .getSession()
+      .then((u) => {
+        if (!cancelled) setUser(u);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null); // API unreachable: treat as guest
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const updateProfile = useCallback(
@@ -55,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
-    const becomeSeller = useCallback(async (profile: SellerProfile, rightsConfirmed: boolean) => {
+  const becomeSeller = useCallback(async (profile: SellerProfile, rightsConfirmed: boolean) => {
     const u = await authService.becomeSeller(profile, rightsConfirmed);
     setUser(u);
     return u;
@@ -78,9 +92,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const refresh = useCallback(async () => {
+    try {
+      setUser(await authService.getSession());
+    } catch {
+      /* keep the current user if the API is unreachable */
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ user, state: deriveState(user, ready), login, register, updateProfile, becomeSeller, logout }),
-    [user, ready, login, register, updateProfile, becomeSeller, logout]
+    () => ({
+      user,
+      state: deriveState(user, ready),
+      login,
+      register,
+      updateProfile,
+      becomeSeller,
+      logout,
+      refresh,
+    }),
+    [user, ready, login, register, updateProfile, becomeSeller, logout, refresh]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import { useSellerData } from "@/hooks/useSellerData";
+import { useSellerProfile } from "@/hooks/useSellerProfile";
 import {
   BIO_MAX,
   cleanProfile,
@@ -20,7 +21,7 @@ import {
   validateProfile,
 } from "@/lib/seller-profile";
 import { computeSellerStats } from "@/lib/seller-stats";
-import { readSellerProfile, saveSellerProfile } from "@/services/seller";
+import { saveSellerProfile } from "@/services/seller-profile";
 import type { SessionUser } from "@/types/auth";
 import type { SellerBook, SellerPublicProfile } from "@/types/seller";
 
@@ -29,18 +30,20 @@ const FIELD_ORDER: Field[] = ["displayName", "bio", "website", "instagram", "x"]
 
 function ProfileEditor({
   user,
+  initial,
   books,
   rating,
 }: {
   user: SessionUser | null;
+  initial: SellerPublicProfile | null;
   books: SellerBook[];
   rating: number;
 }) {
   const { toast } = useToast();
-  const userId = user?.id ?? "anon";
+  const { refresh } = useAuth();
 
   const [saved, setSaved] = useState<SellerPublicProfile>(
-    () => readSellerProfile(userId) ?? defaultProfile(user)
+    () => initial ?? defaultProfile(user)
   );
   const [form, setForm] = useState<SellerPublicProfile>(saved);
   const [tried, setTried] = useState(false);
@@ -69,19 +72,21 @@ function ProfileEditor({
 
     setSaving(true);
     setError(null);
-    await new Promise((r) => setTimeout(r, 500));
-
-    const clean = cleanProfile(form);
-    const ok = saveSellerProfile(userId, clean);
-    setSaving(false);
-
-    if (!ok) {
-      setError("We couldn't save your profile. Please try again.");
-      return;
+    try {
+      const result = await saveSellerProfile(cleanProfile(form));
+      setSaved(result);
+      setForm(result);
+      toast({ title: "Profile saved" });
+      void refresh(); // keep the session's seller name in sync
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "We couldn't save your profile. Please try again."
+      );
+    } finally {
+      setSaving(false);
     }
-    setSaved(clean);
-    setForm(clean);
-    toast({ title: "Profile saved" });
   }
 
   function onDiscard() {
@@ -206,8 +211,10 @@ function ProfileEditor({
 export default function SellerProfilePage() {
   const { user } = useAuth();
   const result = useSellerData();
+  const profile = useSellerProfile(user?.id);
+  const profileState = profile.state;
 
-  if (result.status === "loading") {
+  if (result.status === "loading" || profileState.status === "loading") {
     return (
       <SellerShell>
         <div aria-busy="true" className="grid gap-10 lg:grid-cols-[1fr_380px]">
@@ -223,13 +230,16 @@ export default function SellerProfilePage() {
     );
   }
 
-  if (result.status === "error") {
+  if (result.status === "error" || profileState.status === "error") {
     return (
       <SellerShell>
         <ErrorState
           title="We couldn't load your profile"
           description="Your profile is safe. Please try again."
-          onRetry={result.reload}
+          onRetry={() => {
+            result.reload();
+            profile.reload();
+          }}
         />
       </SellerShell>
     );
@@ -244,6 +254,7 @@ export default function SellerProfilePage() {
       <ProfileEditor
         key={user?.id}
         user={user}
+        initial={profileState.profile}
         books={published}
         rating={rating}
       />

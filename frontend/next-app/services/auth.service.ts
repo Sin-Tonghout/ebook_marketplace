@@ -1,18 +1,5 @@
+import { api, ApiError } from "@/lib/api";
 import type { SellerProfile, SessionUser } from "@/types/auth";
-
-const STORAGE_KEY = "ebook:session";
-const USERS_KEY = "ebook:users";
-const OVERRIDES_KEY = "ebook:user-overrides";
-
-// Demo accounts. Remove in Phase 13 when the Express API takes over.
-const DEMO_USERS: (SessionUser & { password: string })[] = [
-  { id: "u1", name: "Reader Demo", email: "reader@demo.com", password: "password123", role: "user", status: "active" },
-  { id: "u2", name: "Seller Demo", email: "seller@demo.com", password: "password123", role: "seller", status: "active" },
-  { id: "u3", name: "Admin Demo", email: "admin@demo.com", password: "password123", role: "admin", status: "active" },
-  { id: "u4", name: "Suspended Demo", email: "suspended@demo.com", password: "password123", role: "user", status: "suspended" },
-];
-
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class AuthError extends Error {
   constructor(public code: string, message: string) {
@@ -20,19 +7,109 @@ export class AuthError extends Error {
   }
 }
 
-type UserOverride = Partial<Pick<SessionUser, "role" | "status">>;
-
-function getStoredUsers(): (SessionUser & { password: string })[] {
-  if (typeof window === "undefined") return [];
+// Turns API errors into AuthError so existing forms keep working unchanged.
+async function call<T>(
+  path: string,
+  options?: { method?: "GET" | "POST" | "PATCH"; body?: unknown }
+): Promise<T> {
   try {
-    return JSON.parse(window.localStorage.getItem(USERS_KEY) || "[]");
-  } catch {
-    return [];
+    return await api<T>(path, options);
+  } catch (err) {
+    if (err instanceof ApiError) throw new AuthError(err.code, err.message);
+    throw err;
   }
 }
 
-// Admin changes (role / status) are kept separately and applied on top of the
-// base account, so they work for demo accounts and registered accounts alike.
+type UserOverride = Partial<Pick<SessionUser, "role" | "status">>;
+
+export const authService = {
+  /** Asks the API who is signed in. Resolves null for guests. */
+  async getSession(): Promise<SessionUser | null> {
+    const { user } = await call<{ user: SessionUser | null }>("/auth/me");
+    return user;
+  },
+
+  async login(email: string, password: string): Promise<SessionUser> {
+    const { user } = await call<{ user: SessionUser }>("/auth/login", {
+      method: "POST",
+      body: { email, password },
+    });
+    return user;
+  },
+
+  async register(name: string, email: string, password: string): Promise<SessionUser> {
+    const { user } = await call<{ user: SessionUser }>("/auth/register", {
+      method: "POST",
+      body: { name, email, password },
+    });
+    return user;
+  },
+
+  // The API always succeeds for valid emails, even unknown ones.
+  async requestPasswordReset(email: string): Promise<void> {
+    await call("/auth/forgot-password", { method: "POST", body: { email } });
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    await call("/auth/reset-password", {
+      method: "POST",
+      body: { token, password: newPassword },
+    });
+  },
+
+  async updateProfile(
+    patch: Partial<Pick<SessionUser, "name" | "bio" | "favoriteCategories">>
+  ): Promise<SessionUser> {
+    const { user } = await call<{ user: SessionUser }>("/auth/profile", {
+      method: "PATCH",
+      body: patch,
+    });
+    return user;
+  },
+
+  async becomeSeller(profile: SellerProfile, rightsConfirmed: boolean): Promise<SessionUser> {
+    const { user } = await call<{ user: SessionUser }>("/auth/become-seller", {
+      method: "POST",
+      body: { profile, rightsConfirmed },
+    });
+    return user;
+  },
+
+  async logout(): Promise<void> {
+    await call("/auth/logout", { method: "POST" });
+  },
+
+  // -------------------------------------------------------------------------
+  // TEMPORARY admin mock (Phase 12). Not connected to the database.
+  // The Admin API step replaces listUsers / updateUserAccess with real
+  // endpoints. Until then the admin Users page keeps working against this list.
+  // -------------------------------------------------------------------------
+
+  listUsers(): (SessionUser & { source: "demo" | "registered" })[] {
+    return MOCK_USERS.map((u) => ({ ...applyOverride(u), source: "demo" as const }));
+  },
+
+  async updateUserAccess(id: string, patch: UserOverride): Promise<void> {
+    if (!MOCK_USERS.some((u) => u.id === id)) {
+      throw new AuthError("NOT_FOUND", "User not found.");
+    }
+    const overrides = readOverrides();
+    overrides[id] = { ...overrides[id], ...patch };
+    window.localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+  },
+};
+
+// ---- temporary mock data for the admin Users page ----
+
+const OVERRIDES_KEY = "ebook:user-overrides";
+
+const MOCK_USERS: SessionUser[] = [
+  { id: "u1", name: "Reader Demo", email: "reader@demo.com", role: "user", status: "active" },
+  { id: "u2", name: "Seller Demo", email: "seller@demo.com", role: "seller", status: "active" },
+  { id: "u3", name: "Admin Demo", email: "admin@demo.com", role: "admin", status: "active" },
+  { id: "u4", name: "Suspended Demo", email: "suspended@demo.com", role: "user", status: "suspended" },
+];
+
 function readOverrides(): Record<string, UserOverride> {
   if (typeof window === "undefined") return {};
   try {
@@ -42,159 +119,7 @@ function readOverrides(): Record<string, UserOverride> {
   }
 }
 
-function writeOverrides(overrides: Record<string, UserOverride>) {
-  window.localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
-}
-
 function applyOverride<T extends SessionUser>(u: T): T {
   const o = readOverrides()[u.id];
   return o ? { ...u, ...o } : u;
 }
-
-function allUsers() {
-  return [...DEMO_USERS, ...getStoredUsers()].map(applyOverride);
-}
-
-export const authService = {
-  getSession(): SessionUser | null {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      return raw ? applyOverride(JSON.parse(raw) as SessionUser) : null;
-    } catch {
-      return null;
-    }
-  },
-
-  async login(email: string, password: string): Promise<SessionUser> {
-    await delay(700); // simulate network so loading states are visible
-    const found = allUsers().find(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase()
-    );
-    if (!found || found.password !== password) {
-      throw new AuthError("INVALID_CREDENTIALS", "Email or password is incorrect.");
-    }
-    const { password: _pw, ...user } = found;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    return user;
-  },
-
-  async register(name: string, email: string, password: string): Promise<SessionUser> {
-    await delay(800);
-    const exists = allUsers().some(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase()
-    );
-    if (exists) {
-      throw new AuthError("EMAIL_TAKEN", "An account with this email already exists.");
-    }
-    const newUser = {
-      id: `u${Date.now()}`,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password,
-      role: "user" as const,
-      status: "active" as const,
-    };
-    window.localStorage.setItem(USERS_KEY, JSON.stringify([...getStoredUsers(), newUser]));
-    const { password: _pw, ...user } = newUser;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    return user;
-  },
-
-  // Always succeeds, even for unknown emails, so attackers can't probe which emails exist.
-  async requestPasswordReset(email: string): Promise<void> {
-    await delay(800);
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-      throw new AuthError("INVALID_EMAIL", "Enter a valid email address.");
-    }
-    // Phase 13: the Express API sends the real email here.
-  },
-
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    await delay(800);
-    if (!token || token === "expired") {
-      throw new AuthError("TOKEN_EXPIRED", "This reset link has expired.");
-    }
-    if (newPassword.length < 8) {
-      throw new AuthError("WEAK_PASSWORD", "Use at least 8 characters.");
-    }
-    // Phase 13: the API validates the token and updates the password hash.
-  },
-
-  async updateProfile(
-    patch: Partial<Pick<SessionUser, "name" | "bio" | "favoriteCategories">>
-  ): Promise<SessionUser> {
-    await delay(600);
-    const current = authService.getSession();
-    if (!current) throw new AuthError("UNAUTHENTICATED", "Please sign in again.");
-    if (patch.name !== undefined && !patch.name.trim()) {
-      throw new AuthError("INVALID_NAME", "Name can't be empty.");
-    }
-
-    const updated: SessionUser = { ...current, ...patch, name: (patch.name ?? current.name).trim() };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-
-    const stored = getStoredUsers().map((u) =>
-      u.id === updated.id ? { ...u, ...patch, name: updated.name } : u
-    );
-    window.localStorage.setItem(USERS_KEY, JSON.stringify(stored));
-    return updated;
-  },
-
-  async becomeSeller(profile: SellerProfile, rightsConfirmed: boolean): Promise<SessionUser> {
-    await delay(900);
-    const current = authService.getSession();
-    if (!current) throw new AuthError("UNAUTHENTICATED", "Please sign in again.");
-    if (current.status === "suspended") {
-      throw new AuthError("SUSPENDED", "Suspended accounts can't become sellers.");
-    }
-    if (!rightsConfirmed) {
-      throw new AuthError("RIGHTS_REQUIRED", "You need to confirm your publishing rights.");
-    }
-    if (!profile.displayName.trim()) {
-      throw new AuthError("INVALID_NAME", "Add a display name.");
-    }
-
-    const role = current.role === "user" ? "seller" : current.role; // never downgrade admins
-    const updated: SessionUser = { ...current, role, sellerProfile: profile };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-
-    const stored = getStoredUsers().map((u) =>
-      u.id === updated.id ? { ...u, role, sellerProfile: profile } : u
-    );
-    window.localStorage.setItem(USERS_KEY, JSON.stringify(stored));
-
-    // Becoming a seller replaces any earlier admin role override.
-    const overrides = readOverrides();
-    if (overrides[updated.id]?.role) {
-      delete overrides[updated.id].role;
-      writeOverrides(overrides);
-    }
-    return updated;
-  },
-
-  async logout(): Promise<void> {
-    await delay(150);
-    window.localStorage.removeItem(STORAGE_KEY);
-  },
-
-  // ---- Admin helpers (Phase 12) ----
-
-  listUsers(): (SessionUser & { source: "demo" | "registered" })[] {
-    const demoIds = new Set(DEMO_USERS.map((u) => u.id));
-    return allUsers().map(({ password: _pw, ...u }) => ({
-      ...u,
-      source: (demoIds.has(u.id) ? "demo" : "registered") as "demo" | "registered",
-    }));
-  },
-
-  async updateUserAccess(id: string, patch: UserOverride): Promise<void> {
-    await delay(300);
-    if (!allUsers().some((u) => u.id === id)) {
-      throw new AuthError("NOT_FOUND", "User not found.");
-    }
-    const overrides = readOverrides();
-    overrides[id] = { ...overrides[id], ...patch };
-    writeOverrides(overrides);
-  },
-};
