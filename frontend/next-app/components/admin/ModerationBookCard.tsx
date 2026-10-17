@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatPrice, formatRelativeDate } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/seller-status";
+import { RIGHTS_BASIS_LABEL } from "@/types/publish";
 import type { ModerationAction } from "@/types/admin";
 import type { SellerBook } from "@/types/seller";
 
@@ -85,7 +86,11 @@ export function ModerationBookCard({
     >
       <div className="flex gap-4">
         <div className="w-20 shrink-0 sm:w-24">
-          <BookCover title={book.title} author="Folio" src={book.coverUrl} />
+          <BookCover
+            title={book.title}
+            author={book.authorName ?? "Folio"}
+            src={book.coverUrl}
+          />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -98,6 +103,7 @@ export function ModerationBookCard({
           {book.subtitle && <p className="mt-1 text-sm text-muted">{book.subtitle}</p>}
           <p className="mt-2 type-caption text-muted">
             {[
+              book.authorName,
               book.category,
               book.language,
               book.price === 0 ? "Free" : formatPrice(book.price, book.currency),
@@ -143,6 +149,28 @@ export function ModerationBookCard({
                 <dt className="type-label text-muted">Tags</dt>
                 <dd className="mt-1 text-foreground">
                   {book.tags && book.tags.length > 0 ? book.tags.join(", ") : "None"}
+                </dd>
+              </div>
+              <div>
+                <dt className="type-label text-muted">Seller</dt>
+                <dd className="mt-1 text-foreground">{book.authorName ?? "Unknown"}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="type-label text-muted">Rights declaration</dt>
+                <dd className="mt-1 text-foreground">
+                  {book.rights ? (
+                    <>
+                      {RIGHTS_BASIS_LABEL[book.rights.basis]}
+                      {book.rights.confirmedAt
+                        ? ` · confirmed ${formatRelativeDate(book.rights.confirmedAt)}`
+                        : ""}
+                      {book.rights.details ? (
+                        <span className="mt-1 block text-muted">{book.rights.details}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    "No rights declaration on file."
+                  )}
                 </dd>
               </div>
             </dl>

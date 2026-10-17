@@ -6,8 +6,6 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { StepCover } from "@/components/publish/StepCover";
-import { StepFile } from "@/components/publish/StepFile";
 import { StepInfo } from "@/components/publish/StepInfo";
 import { StepPricing } from "@/components/publish/StepPricing";
 import { SellerShell } from "@/components/seller/SellerShell";
@@ -17,24 +15,20 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
-import { useMockUpload } from "@/hooks/useMockUpload";
 import { useSellerData } from "@/hooks/useSellerData";
 import { bookToDraft, draftToBook } from "@/lib/seller-editor";
 import { STATUS_LABEL } from "@/lib/seller-status";
-import { updateSellerBook } from "@/services/seller";
-import {
-  toFileMeta,
-  validateInfo,
-  validatePricing,
-  type BookDraft,
-} from "@/types/publish";
-import type { SellerBook, SellerBookStatus } from "@/types/seller";
+import { saveSellerBook, unpublishSellerBook } from "@/services/seller-books";
+import { validateInfo, validatePricing, type BookDraft } from "@/types/publish";
+import type { SellerBook } from "@/types/seller";
 
 const PRICING_FOCUS_ID = {
   mode: "pricing-mode-free",
   amount: "price-amount",
   promoAmount: "promo-amount",
 } as const;
+
+type Action = "save" | "submit" | "unpublish";
 
 function EditorForm({ book }: { book: SellerBook }) {
   const router = useRouter();
@@ -49,8 +43,6 @@ function EditorForm({ book }: { book: SellerBook }) {
 
   const [infoTried, setInfoTried] = useState(false);
   const [pricingTried, setPricingTried] = useState(false);
-  const [coverTried, setCoverTried] = useState(false);
-  const [fileTried, setFileTried] = useState(false);
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +51,6 @@ function EditorForm({ book }: { book: SellerBook }) {
     (patch: Partial<BookDraft>) => setDraft((d) => ({ ...d, ...patch })),
     []
   );
-  const upload = useMockUpload((file) => update({ file: toFileMeta(file) }));
 
   const dirty = useMemo(
     () => JSON.stringify(draft) !== savedJson,
@@ -102,29 +93,32 @@ function EditorForm({ book }: { book: SellerBook }) {
     return true;
   }
 
-  async function persist(
-    nextStatus: SellerBookStatus,
-    message: string,
-    leave: boolean
-  ) {
+  async function persist(action: Action, message: string, leave: boolean) {
     setSaving(true);
     setError(null);
-    await new Promise((r) => setTimeout(r, 600));
+    try {
+      const saved =
+        action === "unpublish"
+          ? await unpublishSellerBook(base.id)
+          : await saveSellerBook(base.id, draftToBook(base, draft, base.status), action);
 
-    const next = draftToBook(base, draft, nextStatus);
-    const ok = updateSellerBook(next);
-    setSaving(false);
-
-    if (!ok) {
-      setError("We couldn't save your changes. Please try again.");
-      return;
+      // Show the book exactly as the server saved it
+      const fresh = bookToDraft(saved);
+      setBase(saved);
+      setDraft(fresh);
+      setSavedJson(JSON.stringify(fresh));
+      setConfirmUnpublish(false);
+      toast({ title: message });
+      if (leave) router.push("/seller/books");
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "We couldn't save your changes. Please try again."
+      );
+    } finally {
+      setSaving(false);
     }
-
-    setBase(next);
-    setSavedJson(JSON.stringify(draft));
-    setConfirmUnpublish(false);
-    toast({ title: message });
-    if (leave) router.push("/seller/books");
   }
 
   function onSave() {
@@ -134,30 +128,16 @@ function EditorForm({ book }: { book: SellerBook }) {
       return;
     }
     if (isPublished && !checkInfoAndPricing()) return;
-    persist(status, isPublished ? "Changes saved" : "Draft saved", false);
+    persist("save", isPublished ? "Changes saved" : "Draft saved", false);
   }
 
   function onSubmit() {
     if (!checkInfoAndPricing()) return;
-    if (!draft.cover) {
-      setCoverTried(true);
-      document
-        .getElementById("edit-cover")
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    if (!draft.file) {
-      setFileTried(true);
-      document
-        .getElementById("edit-file")
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    persist("pending", "Submitted for review", true);
+    persist("submit", "Submitted for review", true);
   }
 
   function onUnpublish() {
-    persist("archived", "Book unpublished", true);
+    persist("unpublish", "Book unpublished", true);
   }
 
   return (
@@ -203,22 +183,13 @@ function EditorForm({ book }: { book: SellerBook }) {
           onChange={update}
         />
 
-        <div id="edit-cover" className="border-t border-border pt-10">
-          <StepCover
-            draft={draft}
-            authorName={authorName}
-            showRequiredError={coverTried}
-            onChange={update}
-          />
-        </div>
-
-        <div id="edit-file" className="border-t border-border pt-10">
-          <StepFile
-            draft={draft}
-            upload={upload}
-            showRequiredError={fileTried}
-            onRemove={() => update({ file: null })}
-          />
+        <div className="border-t border-border pt-10">
+          <h2 className="type-h3">Cover and book file</h2>
+          <p className="type-body mt-2 text-muted">
+            Changing the cover or the book file isn&apos;t available here yet.
+            It&apos;s coming in the next update. You can edit everything else
+            now.
+          </p>
         </div>
 
         <div className="border-t border-border pt-10">

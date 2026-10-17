@@ -101,6 +101,7 @@ model User {
   reportsFiled       Report[]               @relation("ReportReporter")
   reportsHandled     Report[]               @relation("ReportHandler")
   auditLogs          AuditLog[]
+  pendingUploads     PendingUpload[]
 
   @@index([role])
   @@index([status])
@@ -215,6 +216,7 @@ model Book {
   status            BookStatus  @default(draft)
   rejectionReason   String?     @db.Text
   rightsBasis       String?     @db.VarChar(255)
+  rightsDetails     String?     @db.Text
   rightsConfirmedAt DateTime?
   views             Int         @default(0)
   downloads         Int         @default(0)
@@ -484,4 +486,25 @@ model AuditLog {
   @@index([createdAt])
   @@index([action])
   @@map("audit_logs")
+}
+
+// Files a seller uploaded that are not attached to a book yet.
+// They expire after 24 hours if the book is never submitted.
+model PendingUpload {
+  id           String   @id @default(cuid())
+  userId       String
+  kind         String   @db.VarChar(10) // "book" or "cover"
+  storageKey   String   @db.VarChar(100) // file name inside storage/tmp
+  originalName String   @db.VarChar(255)
+  mimeType     String   @db.VarChar(100)
+  sizeBytes    Int
+  format       String   @db.VarChar(10) // pdf | epub | jpg | png | webp
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("pending_uploads")
 }

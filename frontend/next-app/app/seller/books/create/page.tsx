@@ -20,8 +20,9 @@ import { StepRights } from "@/components/publish/StepRights";
 import { StepPreview } from "@/components/publish/StepPreview";
 import { StepSubmit } from "@/components/publish/StepSubmit";
 import { usePublishDraft } from "@/hooks/usePublishDraft";
-import { useMockUpload } from "@/hooks/useMockUpload";
-import { mockSubmitBook } from "@/lib/mock/submitBook";
+import { useBookUpload } from "@/hooks/useBookUpload";
+import { discardUpload } from "@/lib/upload";
+import { submitBook } from "@/services/publish";
 import {
   PUBLISH_STEPS,
   getIncompleteSteps,
@@ -51,7 +52,9 @@ export default function CreateBookPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { draft, update, reset, hydrated } = usePublishDraft();
-  const upload = useMockUpload((file) => update({ file: toFileMeta(file) }));
+  const upload = useBookUpload((file, uploaded) =>
+    update({ file: { ...toFileMeta(file), uploadId: uploaded.id } })
+  );
 
   const [index, setIndex] = useState(0);
   const [completed, setCompleted] = useState(0);
@@ -158,7 +161,7 @@ export default function CreateBookPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const result = await mockSubmitBook(draft);
+      const result = await submitBook(draft);
       setSubmitted({
         id: result.id,
         title: draft.title.trim(),
@@ -170,8 +173,12 @@ export default function CreateBookPage() {
       reset();
       upload.reset();
       toast({ title: "Submitted for review" });
-    } catch {
-      setSubmitError("We couldn't submit your book. Your draft is safe, so you can try again.");
+    } catch (e) {
+      setSubmitError(
+        e instanceof Error
+          ? `${e.message} Your draft is safe, so you can try again.`
+          : "We couldn't submit your book. Your draft is safe, so you can try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -238,7 +245,10 @@ export default function CreateBookPage() {
                       draft={draft}
                       upload={upload}
                       showRequiredError={fileTried}
-                      onRemove={() => update({ file: null })}
+                      onRemove={() => {
+                        if (draft.file?.uploadId) discardUpload(draft.file.uploadId);
+                        update({ file: null });
+                      }}
                     />
                   ) : step.id === "cover" ? (
                     <StepCover

@@ -1,12 +1,11 @@
-import { mockAdminStats } from "@/lib/mock/admin";
 import { assignableRoles, canManageUser, ROLE_LABEL } from "@/lib/admin-users";
+import { api } from "@/lib/api";
 import { addAuditEntry } from "@/services/audit";
 import { authService } from "@/services/auth.service";
-import { fetchSellerOverview, updateSellerBook } from "@/services/seller";
+import { getReports } from "@/services/reports";
 import type { AdminStats, AdminUser, ModerationAction } from "@/types/admin";
 import type { UserRole } from "@/types/auth";
 import type { SellerBook } from "@/types/seller";
-import { getReports } from "@/services/reports";
 
 export interface Actor {
   id: string;
@@ -16,13 +15,6 @@ export interface Actor {
 export interface UserActor extends Actor {
   role: UserRole;
 }
-
-const ALLOWED_FROM: Record<ModerationAction, SellerBook["status"]> = {
-  approve: "pending",
-  reject: "pending",
-  request_changes: "pending",
-  unpublish: "published",
-};
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -34,80 +26,35 @@ function findUser(id: string): AdminUser {
 
 export const adminService = {
   async getStats(): Promise<AdminStats> {
+    const stats = await api<AdminStats>("/admin/stats");
+    // Reports are still stored in the browser until the reports step.
     const openReports = getReports().filter((r) => r.status === "open").length;
-    try {
-      const { books } = await fetchSellerOverview();
-      return {
-        ...mockAdminStats,
-        openReports,
-        pendingReviews: books.filter((b) => b.status === "pending").length,
-      };
-    } catch {
-      return { ...mockAdminStats, openReports };
-    }
+    return { ...stats, openReports };
   },
 
   /** Every book except private drafts, newest activity first. */
   async getModerationBooks(): Promise<SellerBook[]> {
-    const { books } = await fetchSellerOverview();
-    return books
-      .filter((b) => b.status !== "draft")
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    const { books } = await api<{ books: SellerBook[] }>("/admin/books");
+    return books;
   },
 
+  /**
+   * The API checks the rules, saves the decision, and writes the audit log and
+   * the seller's notification. Throws with a readable message on failure.
+   */
   async moderate(
     book: SellerBook,
     action: ModerationAction,
-    reason: string,
-    actor: Actor
+    reason: string
   ): Promise<SellerBook> {
-    if (book.status !== ALLOWED_FROM[action]) {
-      throw new Error("This book was already changed. Reload the queue.");
-    }
-    const note = reason.trim();
-    if ((action === "reject" || action === "request_changes") && note.length < 10) {
-      throw new Error("Please write a reason of at least 10 characters.");
-    }
-
-    let next: SellerBook;
-    switch (action) {
-      case "approve":
-        next = { ...book, status: "published", rejectionReason: undefined };
-        break;
-      case "reject":
-        next = { ...book, status: "rejected", rejectionReason: note };
-        break;
-      case "request_changes":
-        next = {
-          ...book,
-          status: "rejected",
-          rejectionReason: `Changes requested: ${note}`,
-        };
-        break;
-      case "unpublish":
-        next = { ...book, status: "archived", rejectionReason: undefined };
-        break;
-    }
-    next = { ...next, updatedAt: new Date().toISOString() };
-
-    if (!updateSellerBook(next)) {
-      throw new Error("Couldn't save the decision. Browser storage is full.");
-    }
-
-    addAuditEntry({
-      actorId: actor.id,
-      actorName: actor.name,
-      action: `book.${action}`,
-      targetType: "book",
-      targetId: book.id,
-      targetLabel: book.title,
-      detail: note || undefined,
-    });
-
-    return next;
+    const { book: updated } = await api<{ book: SellerBook }>(
+      `/admin/books/${encodeURIComponent(book.id)}/moderate`,
+      { method: "POST", body: { action, reason: reason.trim() } }
+    );
+    return updated;
   },
 
-  // ---- Users (12.4) ----
+  // ---- Users (12.4): still the local mock until the admin users API ----
 
   async getUsers(): Promise<AdminUser[]> {
     await delay(400);

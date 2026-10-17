@@ -30,6 +30,13 @@ export interface SellerBook {
   tags?: string[];
   file?: BookFileMeta | null;
   rejectionReason?: string;
+  /** Seller name and rights declaration. Shown to admins in the moderation queue. */
+  authorName?: string;
+  rights?: {
+    basis: "owner" | "licensed" | "public-domain";
+    details: string;
+    confirmedAt: string | null;
+  };
 }
 
 export type SellerOrderStatus = "paid" | "pending" | "failed" | "refunded";

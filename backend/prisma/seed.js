@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const prisma = require('../config/db');
 const { slugify } = require('../utils/slug');
 const data = require('./seed-data');
+const { SELLER_BOOKS, daysAgo } = require('./seed-seller-books');
 
 if (env.isProd) {
   console.error('Refusing to seed demo data in production.');
@@ -162,10 +163,64 @@ async function seedCatalog() {
   console.log(`Seeded ${data.AUTHORS.length} authors and ${data.BOOKS.length} books.`);
 }
 
+// The seller demo's own books, in every status (draft, pending, rejected...).
+async function seedSellerBooks() {
+  const seller = await prisma.user.findUnique({
+    where: { email: 'seller@demo.com' },
+    include: { author: true },
+  });
+  if (!seller?.author) throw new Error('The seller demo has no author profile.');
+
+  for (const b of SELLER_BOOKS) {
+    let categoryId = null;
+    if (b.category) {
+      const category = await prisma.category.findUnique({ where: { name: b.category } });
+      if (!category) throw new Error(`Category "${b.category}" is missing.`);
+      categoryId = category.id;
+    }
+
+    const fields = {
+      authorId: seller.author.id,
+      categoryId,
+      title: b.title,
+      subtitle: b.subtitle ?? null,
+      description: b.description || null,
+      price: b.price,
+      compareAtPrice: b.compareAtPrice ?? null,
+      currency: 'USD',
+      language: b.language,
+      format: b.format ?? null,
+      status: b.status,
+      rejectionReason: b.rejectionReason ?? null,
+      rightsBasis: 'owner',
+      rightsConfirmedAt: new Date(),
+      views: b.views,
+      downloads: b.downloads,
+      ratingAvg: b.rating,
+      ratingCount: b.reviewCount,
+      publishedAt: b.publishedAt ? new Date(b.publishedAt) : null,
+      updatedAt: daysAgo(b.updatedDaysAgo),
+    };
+    await prisma.book.upsert({
+      where: { id: b.id },
+      update: fields,
+      create: { id: b.id, ...fields },
+    });
+
+    await prisma.bookTag.deleteMany({ where: { bookId: b.id } });
+    for (const name of b.tags) {
+      const tag = await prisma.tag.upsert({ where: { name }, update: {}, create: { name } });
+      await prisma.bookTag.create({ data: { bookId: b.id, tagId: tag.id } });
+    }
+  }
+  console.log(`Seeded ${SELLER_BOOKS.length} seller books.`);
+}
+
 async function main() {
   await seedUsers();
   await seedCategories();
   await seedCatalog();
+  await seedSellerBooks();
 }
 
 main()

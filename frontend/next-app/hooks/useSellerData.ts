@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { SellerOverview } from "@/types/seller";
-import { fetchSellerOverview } from "@/services/seller";
+import { fetchSellerBooksOverview } from "@/services/seller-books";
 
 type State =
   | { status: "loading" }
@@ -16,7 +16,7 @@ export function useSellerData() {
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
-    fetchSellerOverview()
+    fetchSellerBooksOverview()
       .then((data) => {
         if (!cancelled) setState({ status: "ready", data });
       })

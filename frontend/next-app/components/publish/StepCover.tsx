@@ -6,6 +6,7 @@ import { ImagePlus, Loader2, TriangleAlert } from "lucide-react";
 import { BookCover } from "@/components/books/BookCover";
 import { Button } from "@/components/ui/Button";
 import { processCoverImage } from "@/lib/processCover";
+import { discardUpload, uploadFile } from "@/lib/upload";
 import { cn } from "@/lib/utils";
 import {
   COVER_MAX_MB,
@@ -47,7 +48,15 @@ export function StepCover({ draft, authorName, showRequiredError, onChange }: Pr
     setBusy(true);
     try {
       const result = await processCoverImage(file);
-      onChange({ cover: { name: file.name, ...result } });
+      // Send the prepared image (max 600px wide) to the server and keep its id
+      const blob = await (await fetch(result.dataUrl)).blob();
+      const sent = await uploadFile<{ upload: { id: string } }>(
+        "/uploads/cover",
+        blob,
+        "cover.jpg"
+      ).promise;
+      if (cover?.uploadId) discardUpload(cover.uploadId); // the old cover is replaced
+      onChange({ cover: { name: file.name, ...result, uploadId: sent.upload.id } });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
     } finally {
@@ -68,6 +77,7 @@ export function StepCover({ draft, authorName, showRequiredError, onChange }: Pr
 
   function remove() {
     setError(null);
+    if (cover?.uploadId) discardUpload(cover.uploadId);
     onChange({ cover: null });
   }
 

@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { UploadBox } from "@/components/publish/UploadBox";
-import type { MockUpload } from "@/hooks/useMockUpload";
+import type { BookUpload } from "@/hooks/useBookUpload";
 import { validateBookFile, type BookDraft } from "@/types/publish";
 
 interface Props {
   draft: BookDraft;
-  upload: MockUpload;
+  upload: BookUpload;
   /** True after the user tried to continue without a file. */
   showRequiredError: boolean;
   onRemove: () => void;

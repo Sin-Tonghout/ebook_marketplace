@@ -5,7 +5,7 @@ import { Check, FileText, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { MAX_FILE_MB, formatBytes } from "@/types/publish";
-import type { UploadStatus } from "@/hooks/useMockUpload";
+import type { UploadStatus } from "@/hooks/useBookUpload";
 
 interface Props {
   status: UploadStatus;

@@ -27,6 +27,8 @@ export interface BookFileMeta {
   name: string;
   size: number;
   format: BookFileFormat;
+  /** Id of the file stored on the server (not attached to a book yet). */
+  uploadId?: string;
 }
 
 export const MAX_FILE_MB = 50;
@@ -83,6 +85,8 @@ export interface BookCoverMeta {
   /** Original image size, used for the aspect-ratio warning. */
   width: number;
   height: number;
+  /** Id of the cover stored on the server (not attached to a book yet). */
+  uploadId?: string;
 }
 
 export const COVER_MAX_MB = 5;
